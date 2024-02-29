@@ -136,11 +136,11 @@ create index {$index_name}_idx
 
     public function find_misspelled_words($filename){
         $file_contents = file_get_contents($filename);
-        $words = explode(' ', $file_contents);
+        $words = preg_split("/[\s,]+/", $file_contents);
         $words = array_unique($words);
 
         foreach ($words as $k => $word){
-            $word = preg_replace('/[^\da-z]/i', '', $word);
+            $word = strtolower(preg_replace('/[^\da-z]/i', '', $word));
             $words[$k] = $word;
         }
 
@@ -181,7 +181,6 @@ create index {$index_name}_idx
         foreach ($misspelled_words as $misspelled_word){
             $misspelled_word = preg_replace('/[^\da-z0-9]/i', '', $misspelled_word);
             $candidates_details[$misspelled_word] = [];
-            echo "\$misspelled_word = $misspelled_word" . PHP_EOL;
             foreach ($this->indexes as $index){
                 $index_value = substr(preg_replace('/[^\da-z0-9]/i', '', call_user_func($index->function, $misspelled_word)), 0, $index->size);
                 $index_name = $index->name;
@@ -221,12 +220,53 @@ create index {$index_name}_idx
                       ['candidate' => $candidate, "dist" => levenshtein($misspelled_word, $candidate)];
                 }
             }
+
             usort($word_candidate_dist[$misspelled_word], function($a, $b){
+                $result = $a['dist'] - $b['dist'];
+                if ($result == 0){
+                    return strcmp($a['candidate'], $b['candidate']);
+                }
                 return $a['dist'] - $b['dist'];
             });
+
+            $last_word = '';
+            foreach ($word_candidate_dist[$misspelled_word] as $k => $v){
+                if ($last_word == $v['candidate']){
+                    unset($word_candidate_dist[$misspelled_word][$k]);
+                }
+                $last_word = $v['candidate'];
+            }
         }
 
 
         return ['candidates' => $word_candidate_dist , 'details' => $candidates_details];
+    }
+}
+
+class file_scanner {
+    static function find_word_location_context($filename, $misspelled_words){
+
+        $word_location_context  = [];
+        foreach ($misspelled_words as $misspelled_word){
+            $word_location_context = [];
+        }
+
+        $line_number = 1;
+        $handle = fopen($filename, "r");
+        if ($handle) {
+            while (($line = fgets($handle)) !== false) {
+                foreach ($misspelled_words as $misspelled_word){
+                    $search_line = preg_replace('/[^\da-z0-9 ]/i', '', $line);
+                    $pos = stripos($search_line, $misspelled_word);
+                    if ($pos !== false){
+                        $word_location_context[$misspelled_word][] =
+                            ['line_number' => $line_number, 'pos' => $pos, 'context' => substr($line, $pos - 10, 20 + strlen($misspelled_word))];
+                    }
+
+                }
+            }
+            fclose($handle);
+        }
+        return $word_location_context;
     }
 }
