@@ -39,6 +39,25 @@ class index {
     }
 }
 
+// map adjacent keys to a single key
+function fatfinger_function($word)
+{
+    $adjacent_key_sets = [
+        ['q','w','a','s','z','x'],
+        ['e','r','d','f','c','v'],
+        ['t','y','g','h','b','n'],
+        ['u','i','j','k','m'],
+        ['o','p','l']
+    ];
+
+    foreach ($adjacent_key_sets as $adjacent_key_set) {
+        $first_key = reset($adjacent_key_set);
+        $word = str_replace($adjacent_key_set, $first_key, $word);
+    }
+
+    return $word;
+}
+
 class dictionary {
     private $conn;
     private $indexes = [];
@@ -64,6 +83,8 @@ class dictionary {
         $this->indexes[] = new index(function($word){ return $word;}, 'forward');
         $this->indexes[] = new index(function($word){ return strrev($word);}, 'reverse');
         $this->indexes[] = new index(function($word){ $l = strlen($word); return substr($word,$l/2);}, 'middle');;
+        $this->indexes[] = new index(function($word){ return fatfinger_function($word);}, 'fatfinger');
+
 
         if (!$overwrite){
             $sql = "SELECT * FROM dictionary_last_updload";
