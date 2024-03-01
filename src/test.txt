@@ -1,0 +1,3 @@
+Here is a test file with missspelled and unknown words!
+I should have used a bigger dictionary.
+This is easier than adding mispelt words.
